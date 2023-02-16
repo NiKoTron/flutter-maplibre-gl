@@ -14,7 +14,7 @@ import io.flutter.plugin.common.BinaryMessenger;
 class MapboxMapBuilder implements MapboxMapOptionsSink {
   public final String TAG = getClass().getSimpleName();
   private final MapboxMapOptions options =
-      new MapboxMapOptions().attributionEnabled(true).logoEnabled(false);
+      new MapboxMapOptions().textureMode(true).attributionEnabled(true).logoEnabled(false);
   private boolean trackCameraPosition = false;
   private boolean myLocationEnabled = false;
   private boolean dragEnabled = true;

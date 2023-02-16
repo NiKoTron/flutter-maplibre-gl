@@ -70,6 +70,7 @@ import com.mapbox.mapboxsdk.style.layers.HeatmapLayer;
 import com.mapbox.mapboxsdk.style.layers.HillshadeLayer;
 import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.layers.LineLayer;
+import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.style.layers.PropertyValue;
 import com.mapbox.mapboxsdk.style.layers.RasterLayer;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
@@ -351,7 +352,6 @@ final class MapboxMapController
     userLocation.put("speed", location.getSpeed());
     userLocation.put("altitude", location.getAltitude());
     userLocation.put("bearing", location.getBearing());
-    userLocation.put("speed", location.getSpeed());
     userLocation.put("horizontalAccuracy", location.getAccuracy());
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       userLocation.put(
@@ -1307,13 +1307,22 @@ final class MapboxMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
           String layerId = call.argument("layerId");
           boolean visible = call.argument("visible");
 
           Layer layer = style.getLayer(layerId);
 
-          layer.setProperties(PropertyFactory.visibility(visible ? "visible" : "none"));
+          if (layer == null) {
+            result.error(
+                    "LAYER IS NULL",
+                    "The layer is null. Layer id " + layerId + " not found.",
+                    null);
+            break;
+          }
+
+          layer.setProperties(PropertyFactory.visibility(visible ? Property.VISIBLE : Property.NONE));
 
           result.success(null);
           break;
