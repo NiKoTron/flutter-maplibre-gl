@@ -5,6 +5,7 @@
 package com.mapbox.mapboxgl;
 
 import android.content.Context;
+import android.util.AttributeSet;
 import android.view.Gravity;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
@@ -28,6 +29,7 @@ class MapboxMapBuilder implements MapboxMapOptionsSink {
       Context context,
       BinaryMessenger messenger,
       MapboxMapsPlugin.LifecycleProvider lifecycleProvider) {
+    //final MapboxMapOptions opt = MapboxMapOptions.createFromAttributes(context);
     final MapboxMapController controller =
         new MapboxMapController(
             id, context, messenger, lifecycleProvider, options, styleString, dragEnabled);

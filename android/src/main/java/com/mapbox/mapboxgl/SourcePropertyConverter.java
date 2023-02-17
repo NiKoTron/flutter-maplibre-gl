@@ -40,7 +40,13 @@ class SourcePropertyConverter {
       for (Object item : Convert.toList(bounds)) {
         boundsFloat.add(Convert.toFloat(item));
       }
-      tileSet.setBounds(boundsFloat.toArray(new Float[0]));
+
+      final float left = boundsFloat.get(0);
+      final float bottom = boundsFloat.get(1);
+      final float right = boundsFloat.get(2);
+      final float top = boundsFloat.get(3);
+
+      tileSet.setBounds(left,bottom,right,top);
     }
 
     final Object scheme = data.get("scheme");
