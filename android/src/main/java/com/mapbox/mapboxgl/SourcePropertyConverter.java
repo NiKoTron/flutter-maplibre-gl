@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import kotlin.jvm.internal.FloatSpreadBuilder;
+
 class SourcePropertyConverter {
   private static final String TAG = "SourcePropertyConverter";
 
@@ -35,18 +37,20 @@ class SourcePropertyConverter {
         new TileSet("2.1.0", (String[]) Convert.toList(tiles).toArray(new String[0]));
 
     final Object bounds = data.get("bounds");
+
     if (bounds != null) {
       List<Float> boundsFloat = new ArrayList<Float>();
       for (Object item : Convert.toList(bounds)) {
         boundsFloat.add(Convert.toFloat(item));
       }
 
-      final float left = boundsFloat.get(0);
-      final float bottom = boundsFloat.get(1);
-      final float right = boundsFloat.get(2);
-      final float top = boundsFloat.get(3);
+      float[] boundsArray = new float[4];
+      boundsArray[0] = boundsFloat.get(0);
+      boundsArray[1] = boundsFloat.get(1);
+      boundsArray[2] = boundsFloat.get(2);
+      boundsArray[3] = boundsFloat.get(3);
 
-      tileSet.setBounds(left,bottom,right,top);
+      tileSet.setBounds(boundsArray);
     }
 
     final Object scheme = data.get("scheme");
@@ -182,7 +186,8 @@ class SourcePropertyConverter {
     if (tileSet != null) {
       if (tileSizeObj != null) {
         final int tileSize = Convert.toInt(tileSizeObj);
-        return new RasterSource(id, tileSet, tileSize);
+        RasterSource rs = new RasterSource(id, tileSet, tileSize);
+        return rs;
       } else {
         return new RasterSource(id, tileSet);
       }

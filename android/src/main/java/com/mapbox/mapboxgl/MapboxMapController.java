@@ -158,6 +158,7 @@ final class MapboxMapController
           //     updateMyLocationEnabled();
           //   }
           // }
+
           updateMyLocationEnabled();
 
           if (null != bounds) {
@@ -289,10 +290,10 @@ final class MapboxMapController
   private void enableLocationComponent(@NonNull Style style) {
     if (hasLocationPermission()) {
 
-      locationEngine = new GoogleLocationEngineImpl(context);
+      //locationEngine = new GoogleLocationEngineImpl(context);
 
       final LocationComponentActivationOptions options = LocationComponentActivationOptions.builder(context, style)
-              .locationEngine(locationEngine)
+              //.locationEngine(locationEngine)
               .useDefaultLocationEngine(true)
               .build();
 
@@ -1133,9 +1134,18 @@ final class MapboxMapController
         }
       case "style#addSource":
         {
+          if (style == null) {
+            result.error(
+                    "STYLE IS NULL",
+                    "The style is null. Has onStyleLoaded() already been invoked?",
+                    null);
+          }
+
           final String id = Convert.toString(call.argument("sourceId"));
           final Map<String, Object> properties = (Map<String, Object>) call.argument("properties");
+
           SourcePropertyConverter.addSource(id, properties, style);
+
           result.success(null);
           break;
         }
