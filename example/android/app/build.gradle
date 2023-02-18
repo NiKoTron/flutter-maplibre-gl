@@ -26,7 +26,7 @@ apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     compileSdkVersion 31
-    ndkVersion "20.1.5948944"
+    ndkVersion "21.1.6352462"
 
     lintOptions {
         disable 'InvalidPackage'
@@ -66,15 +66,18 @@ flutter {
 }
 
 dependencies {
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test:runner:1.1.0-alpha4'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0-alpha4'
-    constraints {
-        implementation('com.google.android.gms:play-services-location') {
-            version {
-                strictly "16.0.0"
-            }
-            because 'location: 4.2.3 does not specify version play-services-location'
-            }
-    }
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+
+//    constraints {
+//        implementation('com.google.android.gms:play-services-location') {
+//            version {
+//                strictly "16.0.0"
+//            }
+//            because 'location: 4.2.3 does not specify version play-services-location'
+//            }
+//    }
 }
