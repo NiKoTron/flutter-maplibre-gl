@@ -722,10 +722,12 @@ internal class MapboxMapController(
                 }
                 "camera#animate" -> {
                     val cameraUpdateArgs = call.argument<Any>("cameraUpdate")
-                    mapboxMap?.let { map ->
+                    if(mapboxMap != null){
+
                         val cameraUpdate =
-                            Convert.toCameraUpdate(cameraUpdateArgs!!, map, density)
+                            Convert.toCameraUpdate(cameraUpdateArgs!!, mapboxMap!!, density)
                         val duration = call.argument<Int>("duration")
+
                         val onCameraMoveFinishedListener: OnCameraMoveFinishedListener =
                             object : OnCameraMoveFinishedListener() {
                                 override fun onFinish() {
@@ -738,21 +740,24 @@ internal class MapboxMapController(
                                     result.success(false)
                                 }
                             }
+
                         if (cameraUpdate != null && duration != null) {
                             // camera transformation not handled yet
-                            map.animateCamera(
+                            mapboxMap?.animateCamera(
                                 cameraUpdate,
                                 duration,
                                 onCameraMoveFinishedListener
                             )
                         } else if (cameraUpdate != null) {
                             // camera transformation not handled yet
-                            map.animateCamera(cameraUpdate, onCameraMoveFinishedListener)
+                            mapboxMap?.animateCamera(cameraUpdate, onCameraMoveFinishedListener)
                         } else {
                             result.success(false)
                         }
+                    } else {
+                        result.error("NULL", "MapBox shouldb't be null", null)
                     }
-                    result.success(false) // atually fail
+
                 }
                 "map#queryRenderedFeatures" -> {
                     val reply: MutableMap<String, Any> = HashMap()
