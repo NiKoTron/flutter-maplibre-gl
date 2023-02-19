@@ -22,3 +22,4 @@ part 'src/fill.dart';
 part 'src/ui.dart';
 part 'src/mapbox_gl_platform_interface.dart';
 part 'src/source_properties.dart';
+part 'src/view_wrapper.dart';
