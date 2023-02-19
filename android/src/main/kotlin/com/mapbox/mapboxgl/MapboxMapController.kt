@@ -56,10 +56,7 @@ import com.mapbox.mapboxsdk.offline.OfflineManager.Companion.getInstance
 import com.mapbox.mapboxsdk.plugins.localization.LocalizationPlugin
 import com.mapbox.mapboxsdk.style.expressions.Expression
 import com.mapbox.mapboxsdk.style.layers.*
-import com.mapbox.mapboxsdk.style.sources.CustomGeometrySource
-import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
-import com.mapbox.mapboxsdk.style.sources.ImageSource
-import com.mapbox.mapboxsdk.style.sources.VectorSource
+import com.mapbox.mapboxsdk.style.sources.*
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -75,7 +72,7 @@ import kotlin.math.ceil
 internal class MapboxMapController(
     id: Int,
     context: Context,
-    messenger: BinaryMessenger?,
+    messenger: BinaryMessenger,
     lifecycleProvider: LifecycleProvider,
     options: MapboxMapOptions?,
     styleStringInitial: String,
@@ -92,7 +89,7 @@ internal class MapboxMapController(
     private val context: Context
     private val styleStringInitial: String
     private var mapView: MapView? = null
-    private lateinit var mapboxMap: MapboxMap
+    private var mapboxMap: MapboxMap? = null
     private var trackCameraPosition = false
     private var myLocationEnabled = false
     private var myLocationTrackingMode = 0
@@ -114,7 +111,7 @@ internal class MapboxMapController(
     private var bounds: LatLngBounds? = null
 
     var onStyleLoadedCallback = OnStyleLoaded { style ->
-        this@MapboxMapController.style = style
+        this.style = style
 
         // commented out while cherry-picking upstream956
         // if (myLocationEnabled) {
@@ -125,14 +122,26 @@ internal class MapboxMapController(
 
         updateMyLocationEnabled()
 
-        if (null != bounds) {
-            mapboxMap.setLatLngBoundsForCameraTarget(bounds)
+        mapboxMap?.let { map ->
+            if (null != bounds) {
+                map.setLatLngBoundsForCameraTarget(bounds)
+            }
+
+            map.addOnMapClickListener(this@MapboxMapController)
+            map.addOnMapLongClickListener(this@MapboxMapController)
+
+            localizationPlugin = mapView?.let { LocalizationPlugin(it, map, style) }
+
+
+            if (null != bounds) {
+                map.setLatLngBoundsForCameraTarget(bounds)
+            }
+
+            map.addOnMapClickListener(this@MapboxMapController)
+            map.addOnMapLongClickListener(this@MapboxMapController)
+
+            localizationPlugin = mapView?.let { view ->  LocalizationPlugin(view, map, style) }
         }
-
-        mapboxMap.addOnMapClickListener(this@MapboxMapController)
-        mapboxMap.addOnMapLongClickListener(this@MapboxMapController)
-
-        localizationPlugin = mapView?.let { LocalizationPlugin(it, mapboxMap, style) }
 
         methodChannel.invokeMethod("map#onStyleLoaded", null)
     }
@@ -152,7 +161,8 @@ internal class MapboxMapController(
         if (dragEnabled) {
             androidGesturesManager = AndroidGesturesManager(mapView!!.context, false)
         }
-        methodChannel = MethodChannel(messenger!!, "plugins.flutter.io/mapbox_maps_$id")
+
+        methodChannel = MethodChannel(messenger, "plugins.flutter.io/mapbox_maps_$id")
         methodChannel.setMethodCallHandler(this)
     }
 
@@ -166,19 +176,19 @@ internal class MapboxMapController(
     }
 
     private fun moveCamera(cameraUpdate: CameraUpdate) {
-        mapboxMap.moveCamera(cameraUpdate)
+        mapboxMap?.moveCamera(cameraUpdate)
     }
 
     private fun animateCamera(cameraUpdate: CameraUpdate) {
-        mapboxMap.animateCamera(cameraUpdate)
+        mapboxMap?.animateCamera(cameraUpdate)
     }
 
     private val cameraPosition: CameraPosition?
-        get() = if (trackCameraPosition) mapboxMap.cameraPosition else null
+        get() = if (trackCameraPosition) mapboxMap?.cameraPosition else null
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onMapReady(mapboxMap: MapboxMap) {
-
+        
         this.mapboxMap = mapboxMap
 
         if (mapReadyResult != null) {
@@ -216,10 +226,10 @@ internal class MapboxMapController(
         if (styleString == null || styleString.isEmpty()) {
             Log.e(TAG, "setStyleString - string empty or null")
         } else if (styleString.startsWith("{") || styleString.startsWith("[")) {
-            mapboxMap.setStyle(Style.Builder().fromJson(styleString), onStyleLoadedCallback)
+            mapboxMap?.setStyle(Style.Builder().fromJson(styleString), onStyleLoadedCallback)
         } else if (styleString.startsWith("/")) {
             // Absolute path
-            mapboxMap.setStyle(
+            mapboxMap?.setStyle(
                 Style.Builder().fromUri("file://$styleString"), onStyleLoadedCallback
             )
         } else if (!styleString.startsWith("http://")
@@ -228,9 +238,9 @@ internal class MapboxMapController(
         ) {
             // We are assuming that the style will be loaded from an asset here.
             val key = MapboxMapsPlugin.flutterAssets?.getAssetFilePathByName(styleString)
-            mapboxMap.setStyle(Style.Builder().fromUri("asset://$key"), onStyleLoadedCallback)
+            mapboxMap?.setStyle(Style.Builder().fromUri("asset://$key"), onStyleLoadedCallback)
         } else {
-            mapboxMap.setStyle(Style.Builder().fromUri(styleString), onStyleLoadedCallback)
+            mapboxMap?.setStyle(Style.Builder().fromUri(styleString), onStyleLoadedCallback)
         }
     }
 
@@ -244,7 +254,7 @@ internal class MapboxMapController(
             ) //.locationEngine(locationEngine)
                 .useDefaultLocationEngine(true)
                 .build()
-            locationComponent = mapboxMap.locationComponent
+            locationComponent = mapboxMap?.locationComponent
             locationComponent!!.activateLocationComponent(options)
             locationComponent!!.isLocationComponentEnabled = true
             locationComponent!!.locationEngine = locationEngine
@@ -552,8 +562,8 @@ internal class MapboxMapController(
             }
             layersInOrder.reverse()
             for (id in layersInOrder) {
-                val features = mapboxMap.queryRenderedFeatures(`in`, id)
-                if (features.isNotEmpty()) {
+                val features = mapboxMap?.queryRenderedFeatures(`in`, id)
+                if (features != null && features.isNotEmpty()) {
                     return features[0]
                 }
             }
@@ -657,8 +667,8 @@ internal class MapboxMapController(
                 "map#toLatLng" -> {
                     val reply: MutableMap<String, Any> = HashMap()
                     val latlng = mapboxMap
-                        .projection
-                        .fromScreenLocation(
+                        ?.projection
+                        ?.fromScreenLocation(
                             PointF(
                                 (call.argument<Any>("x") as Double?)!!.toFloat(),
                                 (call.argument<Any>("y") as Double?)!!.toFloat()
@@ -674,8 +684,8 @@ internal class MapboxMapController(
                 "map#getMetersPerPixelAtLatitude" -> {
                     val reply: MutableMap<String, Any> = HashMap()
                     val retVal = mapboxMap
-                        .projection
-                        .getMetersPerPixelAtLatitude((call.argument<Any>("latitude") as Double?)!!)
+                        ?.projection
+                        ?.getMetersPerPixelAtLatitude((call.argument<Any>("latitude") as Double?)!!)
 
                     if (retVal != null) {
                         reply["metersperpixel"] = retVal
@@ -685,12 +695,38 @@ internal class MapboxMapController(
                 }
                 "camera#move" -> {
                     val cameraUpdateArgs = call.argument<Any>("cameraUpdate")
-                    val cameraUpdate =
-                        Convert.toCameraUpdate(cameraUpdateArgs!!, mapboxMap, density)
-                    if (cameraUpdate != null) {
-                        // camera transformation not handled yet
-                        mapboxMap.moveCamera(
-                            cameraUpdate,
+                    mapboxMap?.let { map ->
+                        val cameraUpdate =
+                            Convert.toCameraUpdate(cameraUpdateArgs!!, map, density)
+                        if (cameraUpdate != null) {
+                            // camera transformation not handled yet
+                            map.moveCamera(
+                                cameraUpdate,
+                                object : OnCameraMoveFinishedListener() {
+                                    override fun onFinish() {
+                                        super.onFinish()
+                                        result.success(true)
+                                    }
+
+                                    override fun onCancel() {
+                                        super.onCancel()
+                                        result.success(false)
+                                    }
+                                })
+                            // moveCamera(cameraUpdate);
+                        } else {
+                            result.success(false)
+                        }
+                    }
+                    result.success(false) // actually fail
+                }
+                "camera#animate" -> {
+                    val cameraUpdateArgs = call.argument<Any>("cameraUpdate")
+                    mapboxMap?.let { map ->
+                        val cameraUpdate =
+                            Convert.toCameraUpdate(cameraUpdateArgs!!, map, density)
+                        val duration = call.argument<Int>("duration")
+                        val onCameraMoveFinishedListener: OnCameraMoveFinishedListener =
                             object : OnCameraMoveFinishedListener() {
                                 override fun onFinish() {
                                     super.onFinish()
@@ -701,42 +737,22 @@ internal class MapboxMapController(
                                     super.onCancel()
                                     result.success(false)
                                 }
-                            })
-                        // moveCamera(cameraUpdate);
-                    } else {
-                        result.success(false)
-                    }
-                }
-                "camera#animate" -> {
-                    val cameraUpdateArgs = call.argument<Any>("cameraUpdate")
-                    val cameraUpdate =
-                        Convert.toCameraUpdate(cameraUpdateArgs!!, mapboxMap, density)
-                    val duration = call.argument<Int>("duration")
-                    val onCameraMoveFinishedListener: OnCameraMoveFinishedListener =
-                        object : OnCameraMoveFinishedListener() {
-                            override fun onFinish() {
-                                super.onFinish()
-                                result.success(true)
                             }
-
-                            override fun onCancel() {
-                                super.onCancel()
-                                result.success(false)
-                            }
+                        if (cameraUpdate != null && duration != null) {
+                            // camera transformation not handled yet
+                            map.animateCamera(
+                                cameraUpdate,
+                                duration,
+                                onCameraMoveFinishedListener
+                            )
+                        } else if (cameraUpdate != null) {
+                            // camera transformation not handled yet
+                            map.animateCamera(cameraUpdate, onCameraMoveFinishedListener)
+                        } else {
+                            result.success(false)
                         }
-                    if (cameraUpdate != null && duration != null) {
-                        // camera transformation not handled yet
-                        mapboxMap.animateCamera(
-                            cameraUpdate,
-                            duration,
-                            onCameraMoveFinishedListener
-                        )
-                    } else if (cameraUpdate != null) {
-                        // camera transformation not handled yet
-                        mapboxMap.animateCamera(cameraUpdate, onCameraMoveFinishedListener)
-                    } else {
-                        result.success(false)
                     }
+                    result.success(false) // atually fail
                 }
                 "map#queryRenderedFeatures" -> {
                     val reply: MutableMap<String, Any> = HashMap()
@@ -754,7 +770,7 @@ internal class MapboxMapController(
                         val x = call.argument<Double>("x")
                         val y = call.argument<Double>("y")
                         val pixel = PointF(x!!.toFloat(), y!!.toFloat())
-                        mapboxMap.queryRenderedFeatures(pixel, filterExpression, *layerIds)
+                        mapboxMap!!.queryRenderedFeatures(pixel, filterExpression, *layerIds)
                     } else {
                         val left = call.argument<Double>("left")
                         val top = call.argument<Double>("top")
@@ -763,7 +779,7 @@ internal class MapboxMapController(
                         val rectF = RectF(
                             left!!.toFloat(), top!!.toFloat(), right!!.toFloat(), bottom!!.toFloat()
                         )
-                        mapboxMap.queryRenderedFeatures(rectF, filterExpression, *layerIds)
+                        mapboxMap!!.queryRenderedFeatures(rectF, filterExpression, *layerIds)
                     }
                     val featuresJson: MutableList<String> = ArrayList()
                     for (feature in features) {
@@ -1106,6 +1122,8 @@ internal class MapboxMapController(
                         .include(locationOne) // Northeast
                         .include(locationTwo) // Southwest
                         .build()
+
+
                     mapboxMap!!.easeCamera(
                         newLatLngBounds(
                             latLngBounds,
@@ -1308,8 +1326,8 @@ internal class MapboxMapController(
     }
 
     override fun onMapClick(point: LatLng): Boolean {
-        val pointf = mapboxMap.projection.toScreenLocation(point)
-        val rectF = RectF(pointf.x - 10, pointf.y - 10, pointf.x + 10, pointf.y + 10)
+        val pointf = mapboxMap?.projection?.toScreenLocation(point)
+        val rectF = RectF(pointf!!.x - 10, pointf.y - 10, pointf.x + 10, pointf.y + 10)
         val feature = firstFeatureOnLayers(rectF)
         val arguments: MutableMap<String, Any?> = HashMap()
         arguments["x"] = pointf.x
@@ -1460,7 +1478,7 @@ internal class MapboxMapController(
     }
 
     override fun setCompassEnabled(compassEnabled: Boolean) {
-        mapboxMap.uiSettings.isCompassEnabled = compassEnabled
+        mapboxMap?.uiSettings?.isCompassEnabled = compassEnabled
     }
 
     override fun setTrackCameraPosition(trackCameraPosition: Boolean) {
@@ -1468,24 +1486,24 @@ internal class MapboxMapController(
     }
 
     override fun setRotateGesturesEnabled(rotateGesturesEnabled: Boolean) {
-        mapboxMap.uiSettings.isRotateGesturesEnabled = rotateGesturesEnabled
+        mapboxMap?.uiSettings?.isRotateGesturesEnabled = rotateGesturesEnabled
     }
 
     override fun setScrollGesturesEnabled(scrollGesturesEnabled: Boolean) {
-        mapboxMap.uiSettings.isScrollGesturesEnabled = scrollGesturesEnabled
+        mapboxMap?.uiSettings?.isScrollGesturesEnabled = scrollGesturesEnabled
     }
 
     override fun setTiltGesturesEnabled(tiltGesturesEnabled: Boolean) {
-        mapboxMap.uiSettings.isTiltGesturesEnabled = tiltGesturesEnabled
+        mapboxMap?.uiSettings?.isTiltGesturesEnabled = tiltGesturesEnabled
     }
 
     override fun setMinMaxZoomPreference(min: Float?, max: Float?) {
-        min?.let { mapboxMap.setMinZoomPreference(it.toDouble()) }
-        max?.let { mapboxMap.setMaxZoomPreference(it.toDouble()) }
+        min?.let { mapboxMap!!.setMinZoomPreference(it.toDouble()) }
+        max?.let { mapboxMap!!.setMaxZoomPreference(it.toDouble()) }
     }
 
     override fun setZoomGesturesEnabled(zoomGesturesEnabled: Boolean) {
-        mapboxMap.uiSettings.isZoomGesturesEnabled = zoomGesturesEnabled
+        mapboxMap?.uiSettings?.isZoomGesturesEnabled = zoomGesturesEnabled
     }
 
     override fun setMyLocationEnabled(myLocationEnabled: Boolean) {
@@ -1513,22 +1531,23 @@ internal class MapboxMapController(
             return
         }
         this.myLocationRenderMode = myLocationRenderMode
+
         if (mapboxMap != null && locationComponent != null) {
             updateMyLocationRenderMode()
         }
     }
 
     override fun setLogoViewMargins(x: Int, y: Int) {
-        mapboxMap!!.uiSettings.setLogoMargins(x, 0, 0, y)
+        mapboxMap?.uiSettings?.setLogoMargins(x, 0, 0, y)
     }
 
     override fun setCompassGravity(gravity: Int) {
         when (gravity) {
-            0 -> mapboxMap!!.uiSettings.compassGravity = Gravity.TOP or Gravity.START
-            1 -> mapboxMap!!.uiSettings.compassGravity = Gravity.TOP or Gravity.END
-            2 -> mapboxMap!!.uiSettings.compassGravity = Gravity.BOTTOM or Gravity.START
-            3 -> mapboxMap!!.uiSettings.compassGravity = Gravity.BOTTOM or Gravity.END
-            else -> mapboxMap!!.uiSettings.compassGravity = Gravity.TOP or Gravity.END
+            0 -> mapboxMap?.uiSettings?.compassGravity = Gravity.TOP or Gravity.START
+            1 -> mapboxMap?.uiSettings?.compassGravity = Gravity.TOP or Gravity.END
+            2 -> mapboxMap?.uiSettings?.compassGravity = Gravity.BOTTOM or Gravity.START
+            3 -> mapboxMap?.uiSettings?.compassGravity = Gravity.BOTTOM or Gravity.END
+            else -> mapboxMap?.uiSettings?.compassGravity = Gravity.TOP or Gravity.END
         }
     }
 
@@ -1708,7 +1727,7 @@ internal class MapboxMapController(
             && detector.pointersCount == 1
         ) {
             val pointf = detector.focalPoint
-            val origin = mapboxMap.projection.fromScreenLocation(pointf)
+            val origin = mapboxMap!!.projection.fromScreenLocation(pointf)
             val rectF = RectF(pointf.x - 10, pointf.y - 10, pointf.x + 10, pointf.y + 10)
             val feature = firstFeatureOnLayers(rectF)
             if (feature != null && startDragging(feature, origin)) {
@@ -1720,7 +1739,7 @@ internal class MapboxMapController(
     }
 
     private fun invokeFeatureDrag(pointf: PointF, eventType: String) {
-        val current = mapboxMap.projection.fromScreenLocation(pointf)
+        val current = mapboxMap!!.projection.fromScreenLocation(pointf)
         val arguments: MutableMap<String, Any?> = HashMap(9)
         arguments["id"] = draggedFeature!!.id()
         arguments["x"] = pointf.x
