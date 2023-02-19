@@ -140,7 +140,7 @@ class MethodChannelMaplibreGl extends MapLibreGlPlatform {
       OnPlatformViewCreatedCallback onPlatformViewCreated,
       Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers) {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      _createPlatformViewAndroid(
+      return _createPlatformViewAndroid(
         creationParams: creationParams,
         gestureRecognizers: gestureRecognizers,
         onPlatformViewCreated: onPlatformViewCreated,
