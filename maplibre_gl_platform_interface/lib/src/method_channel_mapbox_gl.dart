@@ -1,5 +1,7 @@
 part of maplibre_gl_platform_interface;
 
+final _plugin = 'plugins.flutter.io/mapbox_gl';
+
 class MethodChannelMaplibreGl extends MapLibreGlPlatform {
   late MethodChannel _channel;
   static bool useHybridComposition = false;
@@ -138,61 +140,109 @@ class MethodChannelMaplibreGl extends MapLibreGlPlatform {
       OnPlatformViewCreatedCallback onPlatformViewCreated,
       Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers) {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      if (useHybridComposition) {
-        return PlatformViewLink(
-          viewType: 'plugins.flutter.io/mapbox_gl',
-          surfaceFactory: (
-            BuildContext context,
-            PlatformViewController controller,
-          ) {
-            return AndroidViewSurface(
-              controller: controller as AndroidViewController,
-              gestureRecognizers: gestureRecognizers ??
-                  const <Factory<OneSequenceGestureRecognizer>>{},
-              hitTestBehavior: PlatformViewHitTestBehavior.opaque,
-            );
-          },
-          onCreatePlatformView: (PlatformViewCreationParams params) {
-            final SurfaceAndroidViewController controller =
-                PlatformViewsService.initSurfaceAndroidView(
+      _createPlatformViewAndroid(
+        creationParams: creationParams,
+        gestureRecognizers: gestureRecognizers,
+        onPlatformViewCreated: onPlatformViewCreated,
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return _createPlatformViewIOS(
+        creationParams: creationParams,
+        onPlatformViewCreated: onPlatformViewCreated,
+        gestureRecognizers: gestureRecognizers,
+      );
+    }
+    return Text(
+        '$defaultTargetPlatform is not yet supported by the maps plugin');
+  }
+
+  Widget _createPlatformViewIOS({
+    required Map<String, dynamic> creationParams,
+    required OnPlatformViewCreatedCallback onPlatformViewCreated,
+    required Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers,
+  }) =>
+      UiKitView(
+        viewType: _plugin,
+        onPlatformViewCreated: onPlatformViewCreated,
+        gestureRecognizers: gestureRecognizers,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+      );
+
+  Widget _createPlatformViewAndroid({
+    required Map<String, dynamic> creationParams,
+    required OnPlatformViewCreatedCallback onPlatformViewCreated,
+    required Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers,
+  }) {
+    final useDelayedDisposalParam =
+        (creationParams['useDelayedDisposal'] ?? false) as bool;
+    final useHybridCompositionParam =
+        (creationParams['useHybridCompositionOverride'] ?? useHybridComposition)
+            as bool;
+    if (useHybridCompositionParam) {
+      return PlatformViewLink(
+        viewType: _plugin,
+        surfaceFactory: (
+          BuildContext context,
+          PlatformViewController controller,
+        ) {
+          return AndroidViewSurface(
+            controller: controller as AndroidViewController,
+            gestureRecognizers: gestureRecognizers ??
+                const <Factory<OneSequenceGestureRecognizer>>{},
+            hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+          );
+        },
+        onCreatePlatformView: (PlatformViewCreationParams params) {
+          late AndroidViewController controller;
+          if (useDelayedDisposalParam) {
+            controller = WrappedPlatformViewsService.initAndroidView(
               id: params.id,
-              viewType: 'plugins.flutter.io/mapbox_gl',
+              viewType: _plugin,
               layoutDirection: TextDirection.ltr,
               creationParams: creationParams,
               creationParamsCodec: const StandardMessageCodec(),
               onFocus: () => params.onFocusChanged(true),
             );
-            controller.addOnPlatformViewCreatedListener(
-              params.onPlatformViewCreated,
+          } else {
+            controller = PlatformViewsService.initAndroidView(
+              id: params.id,
+              viewType: _plugin,
+              layoutDirection: TextDirection.ltr,
+              creationParams: creationParams,
+              creationParamsCodec: const StandardMessageCodec(),
+              onFocus: () => params.onFocusChanged(true),
             );
-            controller.addOnPlatformViewCreatedListener(
-              onPlatformViewCreated,
-            );
+          }
+          controller.addOnPlatformViewCreatedListener(
+            params.onPlatformViewCreated,
+          );
+          controller.addOnPlatformViewCreatedListener(
+            onPlatformViewCreated,
+          );
 
-            controller.create();
-            return controller;
-          },
-        );
-      } else {
-        return AndroidView(
-          viewType: 'plugins.flutter.io/mapbox_gl',
+          controller.create();
+          return controller;
+        },
+      );
+    } else {
+      if (useDelayedDisposalParam) {
+        return AndroidViewWithWrappedController(
+          viewType: _plugin,
           onPlatformViewCreated: onPlatformViewCreated,
           gestureRecognizers: gestureRecognizers,
           creationParams: creationParams,
           creationParamsCodec: const StandardMessageCodec(),
         );
       }
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return UiKitView(
-        viewType: 'plugins.flutter.io/mapbox_gl',
+      return AndroidView(
+        viewType: _plugin,
         onPlatformViewCreated: onPlatformViewCreated,
         gestureRecognizers: gestureRecognizers,
         creationParams: creationParams,
         creationParamsCodec: const StandardMessageCodec(),
       );
     }
-    return Text(
-        '$defaultTargetPlatform is not yet supported by the maps plugin');
   }
 
   @override
